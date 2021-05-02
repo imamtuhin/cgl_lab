@@ -22,10 +22,46 @@ double angle;
 int c=0,rnum=0;
 float re=0,bl=0,gr=0;
 double incx=0,incy=0, ani_angle;
+int time_val;
+
+char title[] = "merge number";
+int windowWidth  = 440;
+int windowHeight = 480;
+float refreshMillis = 4;
+float variable = 0;
+bool timer_flag = true;
+bool size_flag;
+float size_koef = 0;
+float space_between_squares;
+float one_segment_size;
+float offset = 0.2f;
+
 struct point
 {
 	double x,y,z;
 };
+
+
+
+typedef struct SQUARE
+{
+    int value;
+    float x;
+    float y;
+    float dx,rx;
+    float dy,ry;
+    int delta_value;
+    bool need_refresh;
+    bool start_flag;
+    bool size;
+
+} Square ;
+
+typedef struct VECTOR2
+{
+    float x;
+    float y;
+} Vector2;
 
 struct point pos,l,u,r;
 //double X=0,Z=0,a,b;
@@ -91,14 +127,14 @@ void background()
     int a = 100;
     glBegin(GL_QUADS);
     {
-        glColor3f(0.1, 0.2, 1);
+        glColor3f(0.76, 0.91, 0.7);
         glVertex3f(a, a, 0);
-        glColor3f(0.1, 0.2, 1);
+        glColor3f(0.76, 0.91, 0.7);
         glVertex3f(a, -a, 0);
 
-        glColor3f(0.2, 0.7, 0.7);
+        glColor3f(0.71, 0.86, 0.7);
         glVertex3f(-a, -a, 0);
-        glColor3f(0.2, 0.7, 0.7);
+        glColor3f(0.71, 0.86, 0.7);
         glVertex3f(-a, a, 0);
     }
     glEnd();
@@ -223,7 +259,7 @@ void ran()
               // a[1][1]=rndm();
 
                 glPushMatrix();
-                 showText("2", 0, 0, 0, 8, 7, 1);
+                 showText("2", 0, 0, 0, 7, 5, 1);
 //               showText1(to_string(rndm()), 0, 0, 0, 8, 7, 1);
                rectangle(0, 20, 0, 20, 20, re,bl,gr);
                  // quad();
@@ -244,7 +280,7 @@ void ran()
                // a[2][1]=rndm();
                 glPushMatrix();
 
-                 showText("2", 0, 0, 0, 28, 7, 1);
+                 showText("2", 0, 0, 0, 27, 5, 1);
                 //showText((rndm()), 0, 0, 0, 28, 7, 1);
                 rectangle(20, 20, 0, 20, 20, re,bl,gr);
                  // quad();
@@ -265,7 +301,7 @@ void ran()
                 //a[3][1]=rndm();
                 glPushMatrix();
 
-                 showText("2", 0, 0, 0, 48, 7, 1);
+                 showText("2", 0, 0, 0, 47, 5, 1);
                // showText((rndm()), 0, 0, 0, 48, 7, 1);
                 rectangle(40, 20, 0, 20, 20, re,bl,gr);
                  // quad();
@@ -285,7 +321,7 @@ void ran()
               //  a[4][1]=rndm();
                 glPushMatrix();
 
-                 showText("2", 0, 0, 0, 68, 7, 1);
+                 showText("2", 0, 0, 0, 67, 5, 1);
                // showText((rndm()), 0, 0, 0, 68, 7, 1);
                 rectangle(60, 20, 0, 20, 20, re,bl,gr);
                  // quad();
@@ -305,7 +341,7 @@ void ran()
               //  a[1][2]=rndm();
                 glPushMatrix();
 
-                 showText("2", 0, 0, 0, 8, 27, 1);
+                 showText("2", 0, 0, 0, 7, 25, 1);
               // showText((rndm()), 0, 0, 0, 8, 27, 1);
                 rectangle(0, 40, 0, 20, 20, re,bl,gr);
                  // quad();
@@ -325,7 +361,7 @@ void ran()
                 //a[2][2]=rndm();
                 glPushMatrix();
 
-                 showText("2", 0, 0, 0, 28, 27, 1);
+                 showText("2", 0, 0, 0, 27, 25, 1);
                // showText((rndm()), 0, 0, 0, 28, 27, 1);
                 rectangle(20, 40, 0, 20, 20, re,bl,gr);
                  // quad();
@@ -345,7 +381,7 @@ void ran()
                // a[3][2]=rndm();
                 glPushMatrix();
 
-                 showText("2", 0, 0, 0, 48, 27, 1);
+                 showText("2", 0, 0, 0, 47, 25, 1);
                 //showText((rndm()), 0, 0, 0, 48, 27, 1);
                 rectangle(40, 40, 0, 20, 20, re,bl,gr);
                  // quad();
@@ -366,7 +402,7 @@ void ran()
 
                 glPushMatrix();
 
-                 showText("2", 0, 0, 0, 68, 27, 1);
+                 showText("2", 0, 0, 0, 67, 25, 1);
                 //showText((rndm()), 0, 0, 0, 68, 27, 1);
                 rectangle(60, 40, 0, 20, 20, re,bl,gr);
                  // quad();
@@ -387,7 +423,7 @@ void ran()
 
                 glPushMatrix();
 
-                 showText("2", 0, 0, 0, 8, 47, 1);
+                 showText("2", 0, 0, 0, 7, 45, 1);
                 //showText((rndm()), 0, 0, 0, 8, 47, 1);
                 rectangle(0, 60, 0, 20, 20, re,bl,gr);
                  // quad();
@@ -407,7 +443,7 @@ void ran()
                // a[2][3]=rndm();
                 glPushMatrix();
 
-                 showText("2", 0, 0, 0, 28, 47, 1);
+                 showText("2", 0, 0, 0, 27, 45, 1);
                 //showText((rndm()), 0, 0, 0, 28, 47, 1);
                 rectangle(20, 60, 0, 20, 20, re,bl,gr);
                  // quad();
@@ -429,7 +465,7 @@ void ran()
 
                 glPushMatrix();
 
-                 showText("2", 0, 0, 0, 48, 47, 1);
+                 showText("2", 0, 0, 0, 47, 45, 1);
                // showText((rndm()), 0, 0, 0, 48, 47, 1);
                 rectangle(40, 60, 0, 20, 20, re,bl,gr);
                  // quad();
@@ -449,7 +485,7 @@ void ran()
                // a[4][3]=rndm();
                 glPushMatrix();
 
-                 showText("2", 0, 0, 0, 68, 47, 1);
+                 showText("2", 0, 0, 0, 67, 45, 1);
                // showText((rndm()), 0, 0, 0, 68, 47, 1);
                 rectangle(60, 60, 0, 20, 20, re,bl,gr);
                  // quad();
@@ -469,7 +505,7 @@ void ran()
                // a[1][4]=rndm();
                 glPushMatrix();
 
-                 showText("2", 0, 0, 0, 8, 67, 1);
+                 showText("2", 0, 0, 0, 7, 65, 1);
                 //showText((rndm()), 0, 0, 0, 8, 67, 1);
                 rectangle(0, 80, 0, 20, 20, re,bl,gr);
                  // quad();
@@ -491,7 +527,7 @@ void ran()
 
                 glPushMatrix();
 
-                 showText("2", 0, 0, 0, 28, 67, 1);
+                 showText("2", 0, 0, 0, 27, 65, 1);
                // showText((rndm()), 0, 0, 0, 28, 67, 1);
                 rectangle(20, 80, 0, 20, 20, re,bl,gr);
                  // quad();
@@ -511,7 +547,7 @@ void ran()
                // a[3][4]=rndm();
                 glPushMatrix();
 
-                 showText("2", 0, 0, 0, 48, 67, 1);
+                 showText("2", 0, 0, 0, 47, 65, 1);
                // showText((rndm()), 0, 0, 0, 48, 67, 1);
                 rectangle(40, 80, 0, 20, 20, re,bl,gr);
                  // quad();
@@ -533,7 +569,7 @@ void ran()
 
                 glPushMatrix();
 
-                 showText("2", 0, 0, 0, 68, 67, 1);
+                 showText("2", 0, 0, 0, 67, 65, 1);
 //                showText("2", 0, 0, 0, 68, 67, 1);
                 rectangle(60, 80, 0, 20, 20, re,bl,gr);
                  // quad();
@@ -1112,37 +1148,17 @@ void display()
 
 	drawAxes();
 	drawGrid();
-	//gotoxy(10,10);
-	//pu();
+
     ran();
     ran();
 
-   // won();
-   // pri();
-  //  movement();
 
-    //board();
-    //glColor3f(1,0,0);
-    //drawSquare(10);
-
-   // drawSS();
-   // drawSphere(50,30,30);
-   // pyramid();
- /*  glPushMatrix();
-   glTranslated(incx,incy,0);
-   //glRotatef(angle,0 ,0,1);
-   //glRotatef(90, 1, 0, 0);
-   // glRotatef(angle,0 ,0,1);
-        showText("2", 0, 0, 0, 8, 7, 1);
-        //showText(to_string(SCORE), 1, 1, 1, 62, 82, 1);
-        rectangle(0, 20, 0, 20, 20, 0.0, 1.0, 0.0);
-       // quad();
-  */ glPopMatrix();
+   // glPopMatrix();
     //draw_cylinder(20,40,10);
 
     showText1("SCORE: ", 1, 1, 1, 11, 81, 1);
     //showText1(to_string(SCORE), 1, 1, 1, 62, 82, 1);
-    rectangle(10, 90, 0, 60, 10, 0.04, 0.32, 0.27);
+    rectangle(3, 100, 0, 100, 20, 0.04, 0.32, 0.27);
    // board();
 	background();
 
@@ -1204,11 +1220,10 @@ int main(int argc, char **argv)
     //movement();
 
 	glutInit(&argc,argv);
-	glutInitWindowSize(800, 800);
-	glutInitWindowPosition(0, 0);
-	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGB);	//Depth, Double buffer, RGB color
-
-	glutCreateWindow("My OpenGL Program");
+	glutInitDisplayMode(GLUT_RGB|GLUT_DEPTH|GLUT_DOUBLE);
+    glutInitWindowSize(windowWidth, windowHeight);
+    glutInitWindowPosition((glutGet(GLUT_SCREEN_WIDTH)-windowWidth)/2,(glutGet(GLUT_SCREEN_HEIGHT)-windowHeight)/2);
+    glutCreateWindow(title);
 
 	init();
 
@@ -1225,147 +1240,3 @@ int main(int argc, char **argv)
 
 	return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*
-void drawSphere(double radius,int slices,int stacks,int up)
-{
-	struct point points[100][100];
-	int i,j;
-	double h,r;
-	//generate points
-	for(i=0;i<=stacks;i++)
-	{
-		h=radius*sin(((double)i/(double)stacks)*(pi/2));
-		if(up==3){
-                r= 2*radius- radius*cos(((double)i/(double)stacks)*(pi/2));
-		}else{
-		     r=  radius*cos(((double)i/(double)stacks)*(pi/2));
-		}
-		for(j=0;j<=slices;j++)
-		{
-		    if(up!=3){
-			points[i][j].x=r*cos(((double)j/(double)slices)*2*pi);
-			points[i][j].y=r*sin(((double)j/(double)slices)*2*pi);
-			points[i][j].z=h;
-		    }
-		    else{
-            points[i][j].x= r*cos(((double)j/(double)slices)*2*pi);
-			points[i][j].y=(r*sin(((double)j/(double)slices)*2*pi));
-			points[i][j].z=h;
-
-		    }
-		}
-	}
-	//draw quads using generated points
-	for(i=0;i<stacks;i++)
-	{
-        //glColor3f((double)i/(double)stacks,(double)i/(double)stacks,(double)i/(double)stacks);
-
-		for(j=0;j<slices;j++)
-		{
-			glBegin(GL_QUADS);{
-			    //upper hemisphere
-			    glColor3f(j%2,j%2,j%2);
-			    if(up==1 or up==-1 or up==3)
-                {
-                    glVertex3f(points[i][j].x,points[i][j].y,points[i][j].z);
-                    glVertex3f(points[i][j+1].x,points[i][j+1].y,points[i][j+1].z);
-                    glVertex3f(points[i+1][j+1].x,points[i+1][j+1].y,points[i+1][j+1].z);
-                    glVertex3f(points[i+1][j].x,points[i+1][j].y,points[i+1][j].z);
-                }
-                //lower hemisphere
-                if(up==0 or up==-1)
-                {
-
-                    glVertex3f(points[i][j].x,points[i][j].y,-points[i][j].z);
-                    glVertex3f(points[i][j+1].x,points[i][j+1].y,-points[i][j+1].z);
-                    glVertex3f(points[i+1][j+1].x,points[i+1][j+1].y,-points[i+1][j+1].z);
-                    glVertex3f(points[i+1][j].x,points[i+1][j].y,-points[i+1][j].z);
-                }
-
-
-			}glEnd();
-		}
-	}
-}
-
-
-void offline()
-{
-
-    glBegin(GL_QUADS);{
-        //upper hemisphere
-        glColor3f(.1,.1,.1);
-        glVertex3f(200,-650,200);
-        glVertex3f(200,-650,-200);
-        glVertex3f(-200,-650,-200);
-        glVertex3f(-200,-650,200);
-
-    }glEnd();
-
-
-    if(bullet==1 && abs(X)<200 && abs(Z)<200){
-    Y++;
-    arra[Y].x=X;
-    arra[Y].z = Z;
-    printf("%lf %lf %lf %lf\n",X,Z,angle_c_x,angle_c_z);
-
-	bullet =0;
-
-    }
-    int j;
-    for(j=0;j<=Y;j++){
-        glColor3f(1.0,0.0,0.0);
-
-            glBegin(GL_QUADS);{
-            glVertex3f(arra[j].x+5 ,-649, arra[j].z+5);
-            glVertex3f(arra[j].x+5,-649, arra[j].z-5);
-            glVertex3f(arra[j].x-5,-649,arra[j].z-5 );
-            glVertex3f(arra[j].x-5, -649, arra[j].z+5);
-        }glEnd();
-    }
-
-    int segment =30;
-    glRotatef(angle_c_z,0,0,1);
-    glRotatef(angle_c_x,1,0,0);
-    glRotatef(90,1,0,0);
-    glTranslatef(0,0,20);
-    drawSphere(20,segment,segment,0);
-    draw_cylinder(20,100,segment);
-    glTranslatef(0,0,100);
-    drawSphere(20,segment,segment,1);
-    double r,l;
-    r=15;
-    l=170;
-    glTranslatef(0,0,20);
-
-    glRotatef(angle_t_x,1,0,0);
-    glRotatef(angle_t_z,0,0,1);
-
-    glTranslatef(0,0,r);
-    drawSphere(r,segment,segment,0);
-    draw_cylinder(r,l,segment);
-    glTranslatef(0,0,l);
-    drawSphere(r,segment,segment,3);
-}
-*/
