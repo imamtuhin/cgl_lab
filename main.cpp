@@ -1,29 +1,22 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <stdbool.h>
 #include <windows.h>
 #include <glut.h>
 #include <GL.h>
 #include <conio.h>
 #include <ctime>
 #include <iostream>
-#include <stdio.h>
-//#include <stdlib.h>
+#include <cmath>
+#include <unistd.h>
 #include <string.h>
-//#include <math.h>
 #include <time.h>
-#define pi (2*acos(0.0))
+#include "cube_colors.h"
 
 using namespace std;
 
-double cameraHeight;
-double cameraAngle;
-double angle;
-int c=0,rnum=0;
-float re=0,bl=0,gr=0;
-double incx=0,incy=0, ani_angle;
 int time_val;
-
 char title[] = "merge number";
 int windowWidth  = 440;
 int windowHeight = 480;
@@ -35,12 +28,6 @@ float size_koef = 0;
 float space_between_squares;
 float one_segment_size;
 float offset = 0.2f;
-
-struct point
-{
-	double x,y,z;
-};
-
 
 
 typedef struct SQUARE
@@ -57,28 +44,149 @@ typedef struct SQUARE
 
 } Square ;
 
+typedef struct GAMEINFO
+{
+    bool max_num;
+    Square matrix[4][4];
+    int scores;
+} GameStats;
+
+GameStats CreateGameStats(Square matrix[4][4], int scores, bool max_num)
+{
+    GameStats stats;
+    memcpy(stats.matrix, matrix, sizeof(Square)*16);
+    stats.scores = scores;
+    stats.max_num = max_num;
+    return  stats;
+}
+///start important
+typedef struct _Element
+{
+    GameStats value;
+    struct _Element *next;
+} Element;
+
+typedef struct TStack
+{
+    Element *head;
+} Stack;
+
+void Create(Stack * stack)
+{
+    stack->head = NULL;
+}
+
+void Destroy(Stack * stack)
+{
+    while(stack->head)
+    {
+        Element *tmp = stack->head;
+        stack->head = stack->head->next;
+        free(tmp);
+    }
+}
+
+int Push(Stack * stack, GameStats val)
+{
+    Element *tmp = (Element*)malloc(sizeof(GameStats));
+
+    if(!tmp)
+        return 0;
+
+    if (stack->head)
+    {
+        tmp->next = stack->head;
+        tmp->value = val;
+        stack->head = tmp;
+    }
+    else
+    {
+        tmp->value = val;
+        tmp->next = NULL;
+        stack->head = tmp;
+    }
+    return 1;
+}
+
+int Pop(Stack * stack, GameStats *val)
+{
+    if(!stack->head)
+        return 0;
+
+    Element *tmp = stack->head;
+    *val = stack->head->value;
+
+    stack->head = stack->head->next;
+
+    free(tmp);
+
+    return 1;
+}
+
+void Show(Stack * stack)
+{
+    Stack buf;
+    Create(&buf);
+
+    while (stack->head)
+    {
+        GameStats value;
+        Pop(stack, &value);
+        Push(&buf,value);
+    }
+
+    while (buf.head)
+    {
+        GameStats value;
+        Pop(&buf, &value);
+        Push(stack,value);
+    }
+
+    Destroy(&buf);
+
+}
+///end important
+
+
 typedef struct VECTOR2
 {
     float x;
     float y;
 } Vector2;
 
-struct point pos,l,u,r;
-//double X=0,Z=0,a,b;
-//int Y=-1;
-struct point arra[100];
-void movement();
+Vector2 center_points[4][4];
 
-/*
-  void gotoxy(int x, int y)
-    {
-    COORD dwCursorPosition = { x, y };
-    SetConsoleCursorPosition (GetStdHandle(STD_OUTPUT_HANDLE), dwCursorPosition);
-   }
-*/
+Square squares[4][4];
+int startlerp;
 
-int q,a[5][5],win=0,lose=0,x=0,y=0,s=0,coun=0,aa[5][5];
+typedef void (*ButtonCallback)();
+Square matrix[4][4];
+int scores = 0;
+int high_scores = 0;
+Stack stack;
+GameStats stats;
+bool move_flag = false;
+bool max_num = false;
+bool maxcube_flag = false;
+bool endgame_flag = false;
+bool need_random  = false;
+Vector2 bottom_left = {-0.7f, -0.7f};
+Vector2 up_left = {-0.7f, 0.5};
+Vector2 up_right = {0.7f, 0.5f};
+Vector2 bottom_right = {0.7f, -0.7f};
 
+  typedef struct Button
+{
+    int   x;
+    int   y;
+    int   w;
+    int   h;
+    ButtonCallback callbackFunction;
+} Button;
+
+void NewGame();
+Button NewGameButton = {55,80, 80,40, NewGame };
+void GameStatusCheck();
 
 void drawAxes()
 {
@@ -122,1121 +230,816 @@ void drawGrid()
 
 }
 
-void background()
+void initGL()
 {
-    int a = 100;
-    glBegin(GL_QUADS);
-    {
-        glColor3f(0.76, 0.91, 0.7);
-        glVertex3f(a, a, 0);
-        glColor3f(0.76, 0.91, 0.7);
-        glVertex3f(a, -a, 0);
-
-        glColor3f(0.71, 0.86, 0.7);
-        glVertex3f(-a, -a, 0);
-        glColor3f(0.71, 0.86, 0.7);
-        glVertex3f(-a, a, 0);
-    }
-    glEnd();
+    glEnable (GL_BLEND);
+    glBlendFunc (GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+    glClearColor(1, 0.996f, 0.937f, 1);
 }
 
-void drawSquare(double a)
+void RenderBitmapString(float x, float y,float z, void *font,char *string)
 {
-    //glColor3f(1.0,0.0,0.0);
-	glBegin(GL_QUADS);{
-		glVertex3f( a, a,2);
-		glVertex3f( a,-a,2);
-		glVertex3f(-a,-a,2);
-		glVertex3f(-a, a,2);
-	}glEnd();
+    char *c;
+    glRasterPos3f(x,y,z);
+    for (c=string; *c != '\0'; c++)
+        glutBitmapCharacter(font, *c);
 }
 
-
-void rectangle(float x, float y, float z, float a, float b, float red, float green, float blue)
+void UpdateHighScores()
 {
-    glColor3f(red, green, blue);
-
-    glBegin(GL_QUADS);
-    {
-        glVertex3f(x, y, z);
-        glVertex3f(x + a, y, z);
-
-        glVertex3f(x + a, y - b, z);
-        glVertex3f(x, y - b, z);
-    }
-    glEnd();
+      high_scores = scores;
 }
 
-
-void showText(string text, float r, float g, float b, float x, float y, float z)
+void AddScores(int new_scores)
 {
-   // int i;
-    glColor3f(r, g, b);
-    glRasterPos3f(x, y, z);
-    for (int i = 0; text[i] != '\0'; i++)
-        glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, text[i]);
-
-  glEnd();
+    scores += new_scores;
+    if (scores > high_scores)
+        UpdateHighScores();
 }
 
-void showText1(string text, float r, float g, float b, float x, float y, float z)
+void board ()
 {
-   // int i;
-    glColor3f(r, g, b);
-    glRasterPos3f(x, y, z);
-    for (int i = 0; text[i] != '\0'; i++)
-        glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, text[i]);
-
-  glEnd();
-}
-
-
-/*
-int rndm()
-{
-   int val;
-    srand(time(0));
-    q=rand()%50;
-    srand(q);
-    val=rand()%2;
-    if(val==0)
-    {
-       re=0.99;
-       bl=0.94;
-       gr=0.11;
-       rnum=2;
-        //return 2;
-    }
-    else
-    {
-
-       re=0.38;
-       bl=0.99;
-       gr=0.11;
-       rnum=4;
-     //   return 4;
-    }
-}
-*/
-void ran()
-{
-
-    int put=0;
-    srand(time(0));
-    int r=1+rand()%16;
-
-    int val;
-    srand(time(0));
-    q=rand()%50;
-    srand(q);
-    val=rand()%2;
-    if(val==0)
-    {
-       re=0.99;
-       bl=0.94;
-       gr=0.11;
-       rnum=2;
-        //return 2;
-    }
-    else
-    {
-
-       re=0.38;
-       bl=0.99;
-       gr=0.11;
-       rnum=4;
-     //   return 4;
-    }
-
-    while(put==0)
-    {
-        switch (r)
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
         {
-        case 1:
-            if(a[1][1]==0)
+            if ((matrix[i][j].dx != matrix[i][j].x) && matrix[i][j].dx != 0)
             {
-               // gotoxy(2,3);
-              // a[1][1]=rndm();
+                    matrix[i][j].x -=  matrix[i][j].rx;
+                    matrix[i][j].dx +=  matrix[i][j].rx;
+            }
 
-                glPushMatrix();
-                 showText("2", 0, 0, 0, 7, 5, 1);
-//               showText1(to_string(rndm()), 0, 0, 0, 8, 7, 1);
-               rectangle(0, 20, 0, 20, 20, re,bl,gr);
-                 // quad();
-                glPopMatrix();
-                //a[1][1]=rndm();
-                put=1;
-                break;
-            }
-            else
+            if ((matrix[i][j].dy != matrix[i][j].y) && matrix[i][j].dy != 0)
             {
-                r=2;
+                matrix[i][j].y -=  matrix[i][j].ry;
+                matrix[i][j].dy +=  matrix[i][j].ry;
             }
-            break;
-            case 2:
-             if(a[2][1]==0)
-            {
-               // gotoxy(8,3);
-               // a[2][1]=rndm();
-                glPushMatrix();
-
-                 showText("2", 0, 0, 0, 27, 5, 1);
-                //showText((rndm()), 0, 0, 0, 28, 7, 1);
-                rectangle(20, 20, 0, 20, 20, re,bl,gr);
-                 // quad();
-                glPopMatrix();
-
-                put=1;
-                break;
-            }
-            else
-            {
-                r=3;
-            }
-            break;
-            case 3:
-             if(a[3][1]==0)
-            {
-               // gotoxy(14,3);
-                //a[3][1]=rndm();
-                glPushMatrix();
-
-                 showText("2", 0, 0, 0, 47, 5, 1);
-               // showText((rndm()), 0, 0, 0, 48, 7, 1);
-                rectangle(40, 20, 0, 20, 20, re,bl,gr);
-                 // quad();
-                glPopMatrix();
-                put=1;
-                break;
-            }
-            else
-            {
-                r=4;
-            }
-            break;
-            case 4:
-             if(a[4][1]==0)
-            {
-               // gotoxy(20,3);
-              //  a[4][1]=rndm();
-                glPushMatrix();
-
-                 showText("2", 0, 0, 0, 67, 5, 1);
-               // showText((rndm()), 0, 0, 0, 68, 7, 1);
-                rectangle(60, 20, 0, 20, 20, re,bl,gr);
-                 // quad();
-                glPopMatrix();
-                put=1;
-                break;
-            }
-            else
-            {
-                r=5;
-            }
-            break;
-            case 5:
-            if(a[1][2]==0)
-            {
-                //gotoxy(2,7);
-              //  a[1][2]=rndm();
-                glPushMatrix();
-
-                 showText("2", 0, 0, 0, 7, 25, 1);
-              // showText((rndm()), 0, 0, 0, 8, 27, 1);
-                rectangle(0, 40, 0, 20, 20, re,bl,gr);
-                 // quad();
-                glPopMatrix();
-                put=1;
-                break;
-            }
-            else
-            {
-                r=6;
-            }
-            break;
-            case 6:
-             if(a[2][2]==0)
-            {
-               // gotoxy(8,7);
-                //a[2][2]=rndm();
-                glPushMatrix();
-
-                 showText("2", 0, 0, 0, 27, 25, 1);
-               // showText((rndm()), 0, 0, 0, 28, 27, 1);
-                rectangle(20, 40, 0, 20, 20, re,bl,gr);
-                 // quad();
-                glPopMatrix();
-                put=1;
-                break;
-            }
-            else
-            {
-                r=7;
-            }
-            break;
-            case 7:
-             if(a[3][2]==0)
-            {
-               // gotoxy(14,7);
-               // a[3][2]=rndm();
-                glPushMatrix();
-
-                 showText("2", 0, 0, 0, 47, 25, 1);
-                //showText((rndm()), 0, 0, 0, 48, 27, 1);
-                rectangle(40, 40, 0, 20, 20, re,bl,gr);
-                 // quad();
-                glPopMatrix();
-                put=1;
-                break;
-            }
-            else
-            {
-                r=8;
-            }
-            break;
-            case 8:
-             if(a[4][2]==0)
-            {
-               // gotoxy(20,7);
-               // a[4][2]=rndm();
-
-                glPushMatrix();
-
-                 showText("2", 0, 0, 0, 67, 25, 1);
-                //showText((rndm()), 0, 0, 0, 68, 27, 1);
-                rectangle(60, 40, 0, 20, 20, re,bl,gr);
-                 // quad();
-                glPopMatrix();
-                put=1;
-                break;
-            }
-            else
-            {
-                r=9;
-            }
-            break;
-            case 9:
-            if(a[1][3]==0)
-            {
-               // gotoxy(2,11);
-               // a[1][3]=rndm();
-
-                glPushMatrix();
-
-                 showText("2", 0, 0, 0, 7, 45, 1);
-                //showText((rndm()), 0, 0, 0, 8, 47, 1);
-                rectangle(0, 60, 0, 20, 20, re,bl,gr);
-                 // quad();
-                glPopMatrix();
-                put=1;
-                break;
-            }
-            else
-            {
-                r=10;
-            }
-            break;
-            case 10:
-             if(a[2][3]==0)
-            {
-                //gotoxy(8,11);
-               // a[2][3]=rndm();
-                glPushMatrix();
-
-                 showText("2", 0, 0, 0, 27, 45, 1);
-                //showText((rndm()), 0, 0, 0, 28, 47, 1);
-                rectangle(20, 60, 0, 20, 20, re,bl,gr);
-                 // quad();
-                glPopMatrix();
-
-                put=1;
-                break;
-            }
-            else
-            {
-                r=11;
-            }
-            break;
-            case 11:
-             if(a[3][3]==0)
-            {
-               // gotoxy(14,11);
-               // a[3][3]=rndm();
-
-                glPushMatrix();
-
-                 showText("2", 0, 0, 0, 47, 45, 1);
-               // showText((rndm()), 0, 0, 0, 48, 47, 1);
-                rectangle(40, 60, 0, 20, 20, re,bl,gr);
-                 // quad();
-                glPopMatrix();
-                put=1;
-                break;
-            }
-            else
-            {
-                r=12;
-            }
-            break;
-            case 12:
-             if(a[4][3]==0)
-            {
-               // gotoxy(20,11);
-               // a[4][3]=rndm();
-                glPushMatrix();
-
-                 showText("2", 0, 0, 0, 67, 45, 1);
-               // showText((rndm()), 0, 0, 0, 68, 47, 1);
-                rectangle(60, 60, 0, 20, 20, re,bl,gr);
-                 // quad();
-                glPopMatrix();
-                put=1;
-                break;
-            }
-            else
-            {
-                r=13;
-            }
-            break;
-            case 13:
-            if(a[1][4]==0)
-            {
-                //gotoxy(2,15);
-               // a[1][4]=rndm();
-                glPushMatrix();
-
-                 showText("2", 0, 0, 0, 7, 65, 1);
-                //showText((rndm()), 0, 0, 0, 8, 67, 1);
-                rectangle(0, 80, 0, 20, 20, re,bl,gr);
-                 // quad();
-                glPopMatrix();
-
-                put=1;
-                break;
-            }
-            else
-            {
-                r=14;
-            }
-            break;
-            case 14:
-             if(a[2][4]==0)
-            {
-               // gotoxy(8,15);
-               // a[2][4]=rndm();
-
-                glPushMatrix();
-
-                 showText("2", 0, 0, 0, 27, 65, 1);
-               // showText((rndm()), 0, 0, 0, 28, 67, 1);
-                rectangle(20, 80, 0, 20, 20, re,bl,gr);
-                 // quad();
-                glPopMatrix();
-                put=1;
-                break;
-            }
-            else
-            {
-                r=15;
-            }
-            break;
-            case 15:
-             if(a[3][4]==0)
-            {
-               // gotoxy(14,15);
-               // a[3][4]=rndm();
-                glPushMatrix();
-
-                 showText("2", 0, 0, 0, 47, 65, 1);
-               // showText((rndm()), 0, 0, 0, 48, 67, 1);
-                rectangle(40, 80, 0, 20, 20, re,bl,gr);
-                 // quad();
-                glPopMatrix();
-
-                put=1;
-                break;
-            }
-            else
-            {
-                r=16;
-            }
-            break;
-            case 16:
-             if(a[4][4]==0)
-            {
-               // gotoxy(20,15);
-              //  a[4][4]=rndm();
-
-                glPushMatrix();
-
-                 showText("2", 0, 0, 0, 67, 65, 1);
-//                showText("2", 0, 0, 0, 68, 67, 1);
-                rectangle(60, 80, 0, 20, 20, re,bl,gr);
-                 // quad();
-                glPopMatrix();
-                put=1;
-                break;
-            }
-            else
-            {
-                r=1;
-            }
-            break;
         }
-    }
+
 }
 
-void drawCircle(double radius,int segments)
+void StopSizeTimer(int value)
 {
-    int i;
-    struct point points[100];
-    glColor3f(0.7,0.7,0.7);
-    //generate points
-    for(i=0;i<=segments;i++)
-    {
-        points[i].x=radius*cos(((double)i/(double)segments)*2*pi);
-        points[i].y=radius*sin(((double)i/(double)segments)*2*pi);
-    }
-    //draw segments using generated points
-    for(i=0;i<segments;i++)
-    {
-        glBegin(GL_LINES);
+    size_flag = false;
+
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j< 4; j++)
         {
-			glVertex3f(points[i].x,points[i].y,0);
-			glVertex3f(points[i+1].x,points[i+1].y,0);
+            matrix[i][j].start_flag = false;
         }
-        glEnd();
-    }
+
+
+    GameStatusCheck();
+    size_koef = 0;
+    timer_flag = true;
 }
 
-void draw_cylinder(double radius,double height,int segments)
+void ResizeSquare()
 {
-    int i;
-     struct point points[2][100];
-     for(i=0;i<=segments;i++)
-    {
-        points[0][i].x=radius*cos(((double)i/(double)segments)*2*pi);
-        points[0][i].y=radius*sin(((double)i/(double)segments)*2*pi);
-        points[0][i].z=0;
-
-        points[1][i].x=radius*cos(((double)i/(double)segments)*2*pi);
-        points[1][i].y=radius*sin(((double)i/(double)segments)*2*pi);
-        points[1][i].z=height;
-    }
-
-    for (i=0;i<segments;i++)
-    {
-        glBegin(GL_QUADS);{
-			    //upper hemisphere
-			    glColor3f((i)%2,1,(i)%2);
-				glVertex3f(points[0][i].x,points[0][i].y,points[0][i].z);
-				glVertex3f(points[0][i+1].x,points[0][i+1].y,points[0][i+1].z);
-
-				glColor3f((i)%2,(i)%2,1);
-				glVertex3f(points[1][i+1].x,points[1][i+1].y,points[1][i+1].z);
-				glVertex3f(points[1][i].x,points[1][i].y,points[1][i].z);
-
-			}glEnd();
-
-
-    }
+    size_koef += 0.02;
 }
 
-void drawCone(double radius,double height,int segments)
+void CreateRandom(int value)
 {
-    int i;
-    double shade;
-    struct point points[100];
-    //generate points
-    for(i=0;i<=segments;i++)
-    {
-        points[i].x=radius*cos(((double)i/(double)segments)*2*pi);
-        points[i].y=radius*sin(((double)i/(double)segments)*2*pi);
-    }
-    //draw triangles using generated points
-    for(i=0;i<segments;i++)
-    {
-        //create shading effect
-        if(i<segments/2)shade=2*(double)i/(double)segments;
-        else shade=2*(1.0-(double)i/(double)segments);
-        glColor3f(shade,shade,1);
+    int i = rand() % 4;
+    int j = rand() % 4;
 
-        glBegin(GL_TRIANGLES);
+    if (matrix[i][j].value == 0)
+    {
+        srand((unsigned)time(NULL));
+        int chance = rand() % 9;
+
+        if (chance == 8) matrix[i][j].value = 4;
+        else matrix[i][j].value = 2;
+
+        matrix[i][j].start_flag = true;
+        matrix[i][j].need_refresh = false;
+
+        size_flag = true;
+        glutTimerFunc(100, StopSizeTimer, 0);
+
+    }
+    else CreateRandom(200);
+}
+
+void ToUp()
+{
+
+    if (!timer_flag)
+        return;
+
+    for (int j = 0; j < 4; j++)
+        for (int i = 0; i < 3; i++)
+            {
+                int index = i + 1;
+                for (; index < 3; index++)
+                {
+                    if (matrix[index][j].value != 0)
+                        break;
+                }
+
+                if ((matrix[i][j].value == matrix[index][j].value) && matrix[i][j].value > 0)
+                {
+                    matrix[i][j].value += matrix[index][j].value;
+                   AddScores(matrix[index][j].value);
+
+                    matrix[index][j].value = 0;
+
+
+                    matrix[index][j].dy = matrix[i][j].y;
+                    matrix[index][j].ry = (matrix[index][j].y - matrix[index][j].dy) / 15;
+
+                    matrix[index][j].need_refresh = true;
+                    i += 1;
+                }
+            }
+
+        for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 4; j++)
+                if (matrix[i][j].value == 0)
+                {
+                    int index;
+                    for (index = i+ 1; index < 3 ; index++)
+                    {
+                        if (matrix[index][j].value != 0)
+                            break;
+                    }
+
+                    matrix[i][j].value += matrix[index][j].value;
+                    matrix[index][j].value = 0;
+
+                    if (matrix[index][j].dy == 0)
+                    {
+                        matrix[index][j].dy = matrix[i][j].y;
+                        matrix[index][j].ry = (matrix[index][j].y - matrix[index][j].dy) / 15;
+                    }
+
+                    matrix[i][j].need_refresh = true;
+                }
+
+        for (int i = 0; i < 4; i++)
+            for (int j = 0; j < 4; j++)
+            {
+                if ((matrix[i][j].value == 0) && (matrix[i][j].delta_value == 0))
+                {
+                    matrix[i][j].dx = 0;
+                    matrix[i][j].dy = 0;
+                    matrix[i][j].rx = 0;
+                }
+            }
+
+}
+
+void ToDown()
+{
+    if (!timer_flag)
+        return;
+
+    for (int j = 0; j < 4; j++)
+        for (int i = 3; i > 0; i--)
+            {
+                int index = i - 1;
+                for (; index > 0; index--)
+                {
+                    if (matrix[index][j].value != 0)
+                        break;
+                }
+
+                if ((matrix[i][j].value == matrix[index][j].value) && matrix[i][j].value > 0)
+                {
+                    matrix[i][j].value += matrix[index][j].value;
+                    AddScores(matrix[index][j].value);
+                    matrix[index][j].value = 0;
+
+                    matrix[index][j].dy = matrix[i][j].y;
+                    matrix[index][j].ry = (matrix[index][j].y - matrix[index][j].dy) / 15;
+
+                    matrix[index][j].need_refresh = true;
+                    i -= 1;
+                }
+            }
+
+        for (int i = 3; i > 0; i--)
+            for (int j = 0; j < 4; j++)
+                if (matrix[i][j].value == 0)
+                {
+                    int index;
+                    for (index = i - 1; index > 0 ; index--)
+                    {
+                        if (matrix[index][j].value != 0)
+                            break;
+                    }
+
+                    matrix[i][j].value += matrix[index][j].value;
+                    matrix[index][j].value = 0;
+
+                    if (matrix[index][j].dy == 0)
+                    {
+                        matrix[index][j].dy = matrix[i][j].y;
+                        matrix[index][j].ry = (matrix[index][j].y - matrix[index][j].dy) / 15;
+                    }
+
+
+                    matrix[i][j].need_refresh = true;
+                }
+
+        for (int i = 0; i < 4; i++)
+            for (int j = 0; j < 4; j++)
+            {
+                if ((matrix[i][j].value == 0) && (matrix[i][j].delta_value == 0))
+                {
+                    matrix[i][j].dx = 0;
+                    matrix[i][j].dy = 0;
+                    matrix[i][j].rx = 0;
+                }
+            }
+}
+
+void ToLeft()
+{
+    if (!timer_flag)
+        return;
+
+        for (int i = 0; i < 4; i++)
+            for (int j = 0; j < 3; j++)
+            {
+                int index = j + 1;
+                for (; index < 3; index++)
+                {
+                    if (matrix[i][index].value != 0)
+                        break;
+                }
+
+                if ((matrix[i][j].value == matrix[i][index].value) && matrix[i][j].value > 0)
+                {
+                    matrix[i][j].value += matrix[i][index].value;
+                    AddScores(matrix[i][index].value);
+                    matrix[i][index].value = 0;
+
+                    matrix[i][index].dx = matrix[i][j].x;
+                    matrix[i][index].rx = (matrix[i][index].x - matrix[i][index].dx) / 15;
+
+                    matrix[i][index].need_refresh = true;
+                    j += 1;
+
+                }
+            }
+
+        for (int i = 0; i < 4; i++)
+            for (int j = 0; j < 3; j++)
+                if (matrix[i][j].value == 0)
+                {
+                    int index;
+                    for (index = j+ 1; index < 3 ; index++)
+                    {
+                        if (matrix[i][index].value != 0)
+                            break;
+                    }
+
+                    matrix[i][j].value += matrix[i][index].value;
+                    matrix[i][index].value = 0;
+
+                    if (matrix[i][index].dx == 0)
+                    {
+                        matrix[i][index].dx = matrix[i][j].x;
+                        matrix[i][index].rx = (matrix[i][index].x - matrix[i][index].dx) / 15;
+                    }
+
+
+                    matrix[i][j].need_refresh = true;
+                }
+
+        for (int i = 0; i < 4; i++)
+            for (int j = 0; j < 4; j++)
+            {
+                if ((matrix[i][j].value == 0) && (matrix[i][j].delta_value == 0))
+                {
+                    matrix[i][j].dx = 0;
+                    matrix[i][j].dy = 0;
+                    matrix[i][j].rx = 0;
+                }
+            }
+
+}
+
+void ToRight()
+{
+    if (!timer_flag)
+        return;
+
+    for (int i = 0; i < 4; i++)
+        for (int j = 3; j > 0; j--)
         {
-            glVertex3f(0,0,height);
-			glVertex3f(points[i].x,points[i].y,0);
-			glVertex3f(points[i+1].x,points[i+1].y,0);
+            int index = j-1;
+            for (; index > 0; index--)
+            {
+               if (matrix[i][index].value != 0)
+                   break;
+            }
+
+            if ((matrix[i][j].value == matrix[i][index].value) && matrix[i][j].value > 0)
+            {
+                matrix[i][j].value += matrix[i][index].value;
+                AddScores(matrix[i][index].value);
+                matrix[i][index].value = 0;
+
+                matrix[i][index].dx = matrix[i][index].x;
+                matrix[i][index].rx = (matrix[i][index].x - matrix[i][index].dx) / 15;
+
+                matrix[i][index].need_refresh = true;
+                j -= 1;
+            }
         }
-        glEnd();
-    }
-}
 
-
-void drawSphere(double radius,int slices,int stacks)
-{
-	struct point points[100][100];
-	int i,j;
-	double h,r;
-	//generate points
-	for(i=0;i<=stacks;i++)
-	{
-		h=radius*sin(((double)i/(double)stacks)*(pi/2));
-		r=radius*cos(((double)i/(double)stacks)*(pi/2));
-		for(j=0;j<=slices;j++)
-		{
-			points[i][j].x=r*cos(((double)j/(double)slices)*2*pi);
-			points[i][j].y=r*sin(((double)j/(double)slices)*2*pi);
-			points[i][j].z=h;
-		}
-	}
-	//draw quads using generated points
-	for(i=0;i<stacks;i++)
-	{
-        glColor3f((double)i/(double)stacks,(double)i/(double)stacks,(double)i/(double)stacks);
-		for(j=0;j<slices;j++)
-		{
-			glBegin(GL_QUADS);{
-			    //upper hemisphere
-				glVertex3f(points[i][j].x,points[i][j].y,points[i][j].z);
-				glVertex3f(points[i][j+1].x,points[i][j+1].y,points[i][j+1].z);
-				glVertex3f(points[i+1][j+1].x,points[i+1][j+1].y,points[i+1][j+1].z);
-				glVertex3f(points[i+1][j].x,points[i+1][j].y,points[i+1][j].z);
-                //lower hemisphere
-
-                glColor3f(1.0,(double)i/(double)stacks,(double)i/(double)stacks);
-                glVertex3f(points[i][j].x,points[i][j].y,-points[i][j].z);
-				glVertex3f(points[i][j+1].x,points[i][j+1].y,-points[i][j+1].z);
-				glVertex3f(points[i+1][j+1].x,points[i+1][j+1].y,-points[i+1][j+1].z);
-				glVertex3f(points[i+1][j].x,points[i+1][j].y,-points[i+1][j].z);
-			}glEnd();
-
-
-
-		}
-	}
-}
-
-void quad()
-{
-
-
-  // Draw A Quad
-
-
-        glBegin(GL_QUADS);
-            glColor3f(0.0f,1.0f,0.0f);
-            glVertex3f(10,10.0f,0.0f);					    // Top front Of The Quad (right)
-            glVertex3f(20.0f,10.0f,0.0f);					// Top back Of The Quad (right)
-            glVertex3f(20.0f,0.0f,0.0f);					// Bottom back Of The Quad (right)
-            glVertex3f(10.0f,0.0f,0.0f);					// Bottom front Of The Quad (right)
-
-        /*    glColor3f(1.0f,1.0f,0.0f);
-
-            glVertex3f(-1.0f,1.0f,8.0f);					// Top front Of The Quad (left)
-            glVertex3f(-1.0f,1.0f,1.0f);					// Top back Of The Quad (left)
-            glVertex3f(-1.0f,-1.0f,1.0f);					// Bottom back Of The Quad (left)
-            glVertex3f(-1.0f,-1.0f,8.0f);					// Bottom front Of The Quad (left)
-
-
-            glColor3f(1.0f,0.0f,1.0f);
-
-            glVertex3f(1.0f,1.0f,8.0f);					    // Right front Of The Quad (top)
-            glVertex3f(1.0f,1.0f,1.0f);					    // Right back Of The Quad (top)
-            glVertex3f(-1.0f,1.0f,1.0f);				    // Left back Of The Quad (top)
-            glVertex3f(-1.0f,1.0f,8.0f);				    // Left front Of The Quad (top)
-
-
-            glColor3f(0.0f,1.0f,1.0f);
-
-            glVertex3f(1.0f,-1.0f,8.0f);					// Right front Of The Quad (bottom)
-            glVertex3f(1.0f,-1.0f,1.0f);					// Right back Of The Quad (bottom)
-            glVertex3f(-1.0f,-1.0f,1.0f);				    // Left back Of The Quad (bottom)
-            glVertex3f(-1.0f,-1.0f,8.0f);				    // Left front Of The Quad (bottom)
-
-
-            glColor3f(0.0f,0.0f,1.0f);
-
-            glVertex3f(1.0f,1.0f,1.0f);					 // Top Right Of The Quad (Back)
-            glVertex3f(-1.0f,1.0f,1.0f);					// Top Left Of The Quad (Back)
-            glVertex3f(-1.0f,-1.0f,1.0f);					// Bottom Left Of The Quad (Back)
-            glVertex3f(1.0f,-1.0f,1.0f);				// Bottom Right Of The Quad (Back)
-
-
-            glColor3f(1.0f,0.0f,0.0f);
-
-            glVertex3f(1.0f,1.0f,8.0f);					    // Top Right Of The Quad (Front)
-            glVertex3f(-1.0f,1.0f,8.0f);					// Top Left Of The Quad (Front)
-            glVertex3f(-1.0f,-1.0f,8.0f);					// Bottom Left Of The Quad (Front)
-            glVertex3f(1.0f,-1.0f,8.0f);			// Bottom Right Of The Quad (Front)
-*/
-
-        glEnd();
-}
-
-
-void board()
-{
-  // Draw A Quad
-
-
-        glBegin(GL_QUADS);
-            glColor3f(0.6f,0.65f,0.58f);
-            glVertex3f(-40,80.0f,0.0f);					    // Top front Of The Quad (right)
-            glVertex3f(40.0f,80.0f,0.0f);					// Top back Of The Quad (right)
-            glVertex3f(40.0f,0.0f,0.0f);					// Bottom back Of The Quad (right)
-            glVertex3f(-40.0f,0.0f,0.0f);					// Bottom front Of The Quad (right)
-
-
-        glEnd();
-}
-
-
-void drawSquare(GLint x1, GLint y1, GLint x2, GLint y2, GLint x3, GLint y3, GLint x4, GLint y4)
-{
-
-
-// Draw Square
-glBegin(GL_POLYGON);
-glVertex2i(x1, y1);
-glVertex2i(x2, y2);
-glVertex2i(x3, y3);
-glVertex2i(x4, y4);
-glEnd();
-}
-
-void checkingBoard()
-{
-  // Draw A Quad
- glBegin(GL_QUADS);
-            glColor3f(0.6f,0.65f,0.58f);
-            glVertex3f(-40,80.0f,0.0f);					    // Top front Of The Quad (right)
-            glVertex3f(40.0f,80.0f,0.0f);					// Top back Of The Quad (right)
-            glVertex3f(40.0f,0.0f,0.0f);					// Bottom back Of The Quad (right)
-            glVertex3f(-40.0f,0.0f,0.0f);					// Bottom front Of The Quad (right)
-
-
-        glEnd();
-}
-
-void previousBoard()
-{
-  // Draw A Quad
-
- glBegin(GL_QUADS);
-            glColor3f(0.6f,0.65f,0.58f);
-            glVertex3f(-40,80.0f,0.0f);					    // Top front Of The Quad (right)
-            glVertex3f(40.0f,80.0f,0.0f);					// Top back Of The Quad (right)
-            glVertex3f(40.0f,0.0f,0.0f);					// Bottom back Of The Quad (right)
-            glVertex3f(-40.0f,0.0f,0.0f);
-
-        glEnd();
-}
-
-
-
-void pyramid()
-{
-    glBegin(GL_TRIANGLES);
-
-    glColor3f(1,1,0);
-
-    glVertex3d(0,5,0);
-    glVertex3d(5,-3,0);
-    glVertex3d(-5,-3,0);
-
-    glColor3f(1,0.5,0);
-
-    glVertex3d(0,5,0);
-    glVertex3d(5,-3,0);
-    glVertex3d(0,0,5);
-
-    glColor3f(0.5,0.5,0);
-
-    glVertex3d(0,5,0);
-    glVertex3d(0,0,5);
-    glVertex3d(-5,-3,0);
-
-    glColor3f(0.5,1,0);
-
-    glVertex3d(0,0,5);
-    glVertex3d(5,-3,0);
-    glVertex3d(-5,-3,0);
-
-    glEnd();
-}
-
-void drawSS()
-{
-    glColor3f(1,0,0);
-    drawSquare(20);
-
-    glRotatef(angle,0,0,1);
-    glTranslatef(110,0,0);
-    glRotatef(2*angle,0,0,1);
-    glColor3f(0,1,0);
-    drawSquare(15);
-
-    glPushMatrix();
-    {
-        glRotatef(angle,0,0,1);
-        glTranslatef(60,0,0);
-        glRotatef(2*angle,0,0,1);
-        glColor3f(0,0,1);
-        drawSquare(10);
-    }
-    glPopMatrix();
-
-    glRotatef(3*angle,0,0,1);
-    glTranslatef(40,0,0);
-    glRotatef(4*angle,0,0,1);
-    glColor3f(1,1,0);
-    drawSquare(5);
-}
-
-void keyboardListener(unsigned char key, int xx,int yy){
-   /* double x,y,z;
-    double rate = 0.01;
-	switch(key){
-
-		case '1':
-
-			{
-            x=l.x;y=l.y;z=l.z;
-			l.x = l.x*cos(rate)+1*r.x*sin(rate);
-			l.y = l.y*cos(rate)+r.y*sin(rate);
-			l.z = l.z*cos(rate)+r.z*sin(rate);
-
-			r.x = r.x*cos(rate)-x*sin(rate);
-			r.y = r.y*cos(rate)-y*sin(rate);
-			r.z = r.z*cos(rate)-z*sin(rate);}
-			break;
-        case '2':
-
-			{
-            x=l.x;y=l.y;z=l.z;
-			l.x = l.x*cos(-rate)+r.x*sin(-rate);
-			l.y = l.y*cos(-rate)+r.y*sin(-rate);
-			l.z = l.z*cos(-rate)+r.z*sin(-rate);
-
-			r.x = r.x*cos(-rate)-x*sin(-rate);
-			r.y = r.y*cos(-rate)-y*sin(-rate);
-			r.z = r.z*cos(-rate)-z*sin(-rate);
-			}
-			break;
-        case '3':
-            x=l.x;y=l.y;z=l.z;
-			l.x = l.x*cos(rate)+u.x*sin(rate);
-			l.y = l.y*cos(rate)+u.y*sin(rate);
-			l.z = l.z*cos(rate)+u.z*sin(rate);
-
-			u.x = u.x*cos(rate)-x*sin(rate);
-			u.y = u.y*cos(rate)-y*sin(rate);
-			u.z = u.z*cos(rate)-z*sin(rate);
-			break;
-        case '4':
-            x=l.x;y=l.y;z=l.z;
-			l.x = l.x*cos(-rate)+1*u.x*sin(-rate);
-			l.y = l.y*cos(-rate)+u.y*sin(-rate);
-			l.z = l.z*cos(-rate)+u.z*sin(-rate);
-
-			u.x = u.x*cos(-rate)-x*sin(-rate);
-			u.y = u.y*cos(-rate)-y*sin(-rate);
-			u.z = u.z*cos(-rate)-z*sin(-rate);
-			break;
-        case '6':
-            x=r.x;y=r.y;z=r.z;
-			r.x = r.x*cos(rate)+u.x*sin(rate);
-			r.y = r.y*cos(rate)+u.y*sin(rate);
-			r.z = r.z*cos(rate)+u.z*sin(rate);
-
-			u.x = u.x*cos(rate)-x*sin(rate);
-			u.y = u.y*cos(rate)-y*sin(rate);
-			u.z = u.z*cos(rate)-z*sin(rate);
-			break;
-        case '5':
-            x=r.x;y=r.y;z=r.z;
-			r.x = r.x*cos(-rate)+u.x*sin(-rate);
-			r.y = r.y*cos(-rate)+u.y*sin(-rate);
-			r.z = r.z*cos(-rate)+u.z*sin(-rate);
-
-			u.x = u.x*cos(-rate)-x*sin(-rate);
-			u.y = u.y*cos(-rate)-y*sin(-rate);
-			u.z = u.z*cos(-rate)-z*sin(-rate);
-			break;
-		default:
-			break;
-	}  */
-
-}
-
-
-void specialKeyListener(int key, int x,int y)
-{
-	switch(key){
-		case GLUT_KEY_UP:		//down arrow key
-			/*  pos.x+=l.x;
-			pos.y+=l.y;
-			pos.z+=l.z;
-			*/
-			//incy+=10;
-			//angle=0;
-			break;
-		case GLUT_KEY_DOWN:		// up arrow key
-			/* pos.x-=l.x;
-			pos.y-=l.y;
-			pos.z-=l.z;  */
-			break;
-
-		case GLUT_KEY_LEFT :
-			/* pos.x+=r.x;
-			pos.y+=r.y;
-			pos.z+=r.z;
-
-
-			  }
-
-
-			*/
-
-                //incx-=10;
-                //angle=0;
-
-               break;
-
-
-              // incy+=10*a;
-
-
-
-		case GLUT_KEY_RIGHT :
-			/* pos.x-=r.x;
-			pos.y-=r.y;
-			pos.z-=r.z;  */
-                //incx+=10;
-               // angle=0;
-
-
-            //  incy-=10*a;
-                   //default:
-                break;
-
-		case GLUT_KEY_PAGE_UP:
-		  /*  pos.x+=u.x;
-			pos.y+=u.y;
-			pos.z+=u.z;  */
-			break;
-		case GLUT_KEY_PAGE_DOWN:
-           /* pos.x-=u.x;
-			pos.y-=u.y;
-			pos.z-=u.z;  */
-			break;
-
-		case GLUT_KEY_INSERT:
-			break;
-
-		case GLUT_KEY_HOME:
-			break;
-		case GLUT_KEY_END:
-			break;
-
-		default:
-			break;
-	}
-}
-
-
-void mouseListener(int button, int state, int x, int y)
-{	//x, y is the x-y of the screen (2D)
-	switch(button){
-		case GLUT_LEFT_BUTTON:
-		    if(state == GLUT_DOWN){		// 2 times?? in ONE click? -- solution is checking DOWN or UP
-
-			}
-			break;
-
-
-		case GLUT_RIGHT_BUTTON:
-		    if(state == GLUT_DOWN){		// 2 times?? in ONE click? -- solution is checking DOWN or UP
-
-				//(600/cos(angle_c_x*pi/180))/cos(angle_t_x*pi/180);
-			}
-			break;
-			//........
-
-		case GLUT_MIDDLE_BUTTON:
-			//........
-			break;
-
-		default:
-			break;
-	}
-}
-
-void animation3d()
-{
-    //glTranslated(20,0,20);
-    //glRotated(ani_angle,0,0,1 );
-    //glTranslated(20,0,0);
-    glColor3f(1,0.2,0);
-    drawSphere(5,10,10);
-
-    glPushMatrix();
-
-    glColor3f(0,0.5,0.5);
-    glRotated(1.5*ani_angle,0,0,1);
-    glTranslated(20,0,0);
-    glRotated(4*ani_angle,0,0,1);
-    drawSphere(3,10,10);
-
-    glPopMatrix();
-
-    glPushMatrix();
-
-    glColor3f(0.5,0.0,0.5);
-    glRotated(ani_angle+40,0,0,1);
-    glTranslated(30,0,0);
-    drawSphere(3,10,10);
-
-    glPopMatrix();
-
-    glPushMatrix();
-
-    glColor3f(0.5,0.5,0.5);
-    glRotated(-1.9*ani_angle+60,0,1,1);
-    glTranslated(45,0,0);
-    drawSphere(7,40,40);
-
-    glPopMatrix();
-
+    for (int i = 0; i < 4; i++)
+        for (int j = 3; j > 0; j--)
+            if (matrix[i][j].value == 0)
+            {
+                int index;
+                for (index = j-1; index > 0 ; index--)
+                {
+                    if (matrix[i][index].value != 0)
+                        break;
+                }
+
+                matrix[i][j].value += matrix[i][index].value;
+                matrix[i][index].value = 0;
+
+                if (matrix[i][index].dx == 0)
+                {
+                    matrix[i][index].dx = matrix[i][j].x;
+                    matrix[i][index].rx = (matrix[i][index].x - matrix[i][index].dx) / 15;
+                }
+
+
+                matrix[i][j].need_refresh = true;
+            }
+
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+        {
+            if ((matrix[i][j].value == 0) && (matrix[i][j].delta_value == 0))
+            {
+                matrix[i][j].dx = 0;
+                matrix[i][j].dy = 0;
+                matrix[i][j].rx = 0;
+            }
+        }
 }
 
 void display()
 {
-
-	//clear the display
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glClearColor(1,1,1,0);	//color black
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	/********************
-	/ set-up camera here
-	********************/
-	//load the correct matrix -- MODEL-VIEW matrix
-	glMatrixMode(GL_MODELVIEW);
-
-	//initialize the matrix
-	glLoadIdentity();
-
-	//now give three info
-	//1. where is the camera (viewer)?
-	//2. where is the camera looking?
-	//3. Which direction is the camera's UP direction?
-
-	//gluLookAt(100,100,100,	0,0,0,	0,0,1);
-	//gluLookAt(200*cos(cameraAngle), 200*sin(cameraAngle), cameraHeight,		0,0,0,		0,0,1);
-	//gluLookAt(pos.x,pos.y,pos.z,	pos.x+l.x,pos.y+l.y,pos.z+l.z,	u.x,u.y,u.z);
-    gluLookAt(0,0,200,	0,0,0,	0,1,0);
-
-	//again select MODEL-VIEW
-	glMatrixMode(GL_MODELVIEW);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
 
 
-	/****************************
-	/ Add your objects from here
-	****************************/
-	//add objects
+    //best score
+    glBegin(GL_QUADS);
+        glColor3f(0.9f, 0.2f, 0.3f);
+        glVertex2f(up_right.x - 0.4f, 1 - (1 - up_right.y - offset)+ offset);
+        glVertex2f(up_right.x - 0.4f, 1 - (1 - up_right.y - offset));
+        glVertex2f(up_right.x,1 - (1 - up_right.y - offset));
+        glVertex2f(up_right.x, 1 - (1 - up_right.y - offset)+ offset);
+    glEnd();
 
-	drawAxes();
-	drawGrid();
+    //score
+    glBegin(GL_QUADS);
+        glColor3f(0.8f, 0.3f, 0.14f);
+        glVertex2f(up_right.x - 0.85f, 1 - (1 - up_right.y - offset)+ offset);
+        glVertex2f(up_right.x - 0.85f, 1 - (1 - up_right.y - offset));
+        glVertex2f(up_right.x-0.45f,1 - (1 - up_right.y - offset));
+        glVertex2f(up_right.x-0.45f, 1 - (1 - up_right.y - offset)+ offset);
+    glEnd();
 
-    ran();
-    ran();
+    // New game
+    glBegin(GL_QUADS);
+    glColor3f(0.6f, 0.8f, 0.3f);
+    glVertex2f(up_left.x + 0.3f, 1 - (1 - up_left.y - offset) - 0.17f);
+    glVertex2f(up_left.x + 0.3f, 1 - (1 - up_left.y - offset) - 0.03f);
+    glVertex2f(up_left.x,1 - (1 - up_left.y - offset) - 0.03f);
+    glVertex2f(up_left.x, 1 - (1 - up_left.y - offset) - 0.17f);
+    glEnd();
 
-
-   // glPopMatrix();
-    //draw_cylinder(20,40,10);
-
-    showText1("SCORE: ", 1, 1, 1, 11, 81, 1);
-    //showText1(to_string(SCORE), 1, 1, 1, 62, 82, 1);
-    rectangle(3, 100, 0, 100, 20, 0.04, 0.32, 0.27);
-   // board();
-	background();
-
-
-    //drawCircle(30,24);
-
-   // drawCone(20,50,5);
-
-	//drawSphere(30,24,20);
-	//animation3d();
+    // border
+    glBegin(GL_QUADS);
+        glColor3f(0.34f, 0.99f, 1.05f);
+        glVertex2f(bottom_left.x, bottom_left.x - offset);
+        glVertex2f(up_left.x, up_left.y);
+        glVertex2f(up_right.x , up_right.y);
+        glVertex2f(bottom_right.x, bottom_right.y - offset);
+    glEnd();
 
 
 
+    //board
+    float current_x, current_y;
+    current_x = current_y = 0;
 
-	//ADD this line in the end --- if you use double buffer (i.e. GL_DOUBLE)
-	glutSwapBuffers();
+    for (int i = 0; i < 4; i++)
+    {
+        for (int j = 0; j< 4; j++)
+        {
+            glBegin(GL_POLYGON);
+            glColor3f(0.6f, 0.8f, 0.5f);
+            glVertex2f(center_points[i][j].x - one_segment_size / 2, center_points[i][j].y + one_segment_size / 2);
+            glVertex2f(center_points[i][j].x + one_segment_size / 2, center_points[i][j].y + one_segment_size / 2);
+            glVertex2f(center_points[i][j].x + one_segment_size / 2, center_points[i][j].y - one_segment_size / 2);
+            glVertex2f(center_points[i][j].x - one_segment_size / 2, center_points[i][j].y - one_segment_size / 2);
+            glEnd();
+
+        }
+
+    }
+
+    //cube
+
+    for (int i = 0; i < 4; i++)
+    {
+        for (int j = 0; j< 4; j++)
+        {
+            if ((matrix[i][j].dx > 0.0f || matrix[i][j].dy > 0.0f || matrix[i][j].dx < 0.0f || matrix[i][j].dy < 0.0f) && matrix[i][j].delta_value > 0  )
+            {
+                glBegin(GL_QUADS);
+                    Color color = GetColor(matrix[i][j].delta_value);
+                    glColor3f(color.r, color.g , color.b);
+                    glVertex2f(matrix[i][j].x - one_segment_size / 2, matrix[i][j].y  - one_segment_size / 2);
+                    glVertex2f(matrix[i][j].x - one_segment_size / 2, matrix[i][j].y + one_segment_size / 2);
+                    glVertex2f(matrix[i][j].x + one_segment_size / 2, matrix[i][j].y + one_segment_size / 2);
+                    glVertex2f(matrix[i][j].x + one_segment_size / 2, matrix[i][j].y - one_segment_size / 2);
+                glEnd();
+
+                color = GetTextColor(matrix[i][j].delta_value);
+                glColor3f(color.r, color.g , color.b);
+                char c[20];
+                sprintf(c, "%d", matrix[i][j].delta_value);
+
+                if (matrix[i][j].value > 0)
+                    RenderBitmapString(center_points[i][j].x-(0.02f*strlen(c)),center_points[i][j].y-0.02f,-1,GLUT_BITMAP_HELVETICA_18,c);
+            }
+            else if (matrix[i][j].value > 0 && !matrix[i][j].need_refresh)
+            {
+
+                glBegin(GL_QUADS);
+                    Color color = GetColor(matrix[i][j].value);
+                    glColor3f(color.r, color.g , color.b);
+
+                    if (matrix[i][j].start_flag)
+                    {
+                        glVertex2f(matrix[i][j].x - (one_segment_size / 2 * size_koef), matrix[i][j].y  - (one_segment_size / 2 * size_koef));
+                        glVertex2f(matrix[i][j].x - (one_segment_size / 2 * size_koef), matrix[i][j].y + (one_segment_size / 2 * size_koef));
+                        glVertex2f(matrix[i][j].x + (one_segment_size / 2 * size_koef), matrix[i][j].y + (one_segment_size / 2 * size_koef));
+                        glVertex2f(matrix[i][j].x + (one_segment_size / 2 * size_koef), matrix[i][j].y - (one_segment_size / 2 * size_koef));
+                    }
+                    else
+                    {
+                        glVertex2f(matrix[i][j].x - one_segment_size / 2, matrix[i][j].y  - one_segment_size / 2);
+                        glVertex2f(matrix[i][j].x - one_segment_size / 2, matrix[i][j].y + one_segment_size / 2);
+                        glVertex2f(matrix[i][j].x + one_segment_size / 2, matrix[i][j].y + one_segment_size / 2);
+                        glVertex2f(matrix[i][j].x + one_segment_size / 2, matrix[i][j].y - one_segment_size / 2);
+                    }
+                glEnd();
+
+                color = GetTextColor(matrix[i][j].value);
+                glColor3f(color.r, color.g, color.b);
+                char c[20];
+                sprintf(c, "%d", matrix[i][j].value);
+
+                if (matrix[i][j].value > 0)
+                    RenderBitmapString(center_points[i][j].x-(0.02f*strlen(c)),center_points[i][j].y-0.02f,-1,GLUT_BITMAP_HELVETICA_18,c);
+            }
+        }
+    }
+
+    glColor3f(0.466f, 0.431f, 0.396f);
+        RenderBitmapString(-0.71f,0.82f,-1,GLUT_BITMAP_HELVETICA_18,"merge number");
+        RenderBitmapString(-0.35f,0.6f,-1,GLUT_BITMAP_HELVETICA_12,"left,right,up,down/W,S,A,D");
+        RenderBitmapString(-0.35f,0.54f,-1,GLUT_BITMAP_HELVETICA_12,"to merge number");
+    glColor3f(0.933f, 0.894f, 0.854f);
+        RenderBitmapString((up_right.x - 0.85f) + 0.15f,1 - (1 - up_right.y - offset)+0.14f,-1,GLUT_BITMAP_HELVETICA_10,"Score");
+        RenderBitmapString((up_right.x - 0.4f) + 0.15f,1 - (1 - up_right.y - offset)+0.14f,-1,GLUT_BITMAP_HELVETICA_10,"Best");
+        RenderBitmapString((up_left.x + 0.1f),1 - (1 - up_right.y - offset)-0.11f,-1,GLUT_BITMAP_HELVETICA_10,"New");
+
+
+    char char_scores[20];
+    sprintf(char_scores, "%d", scores);
+    RenderBitmapString(((up_right.x - 0.81f) + 0.17f)-(0.02f*strlen(char_scores)),1 - (1 - up_right.y - offset) + 0.05f,-1,GLUT_BITMAP_HELVETICA_18,char_scores);
+
+    sprintf(char_scores, "%d", high_scores);
+    RenderBitmapString(((up_right.x - 0.81f) + 0.61f)-(0.02f*strlen(char_scores)),1 - (1 - up_right.y - offset) + 0.05f,-1,GLUT_BITMAP_HELVETICA_18,char_scores);
+
+
+    if (endgame_flag)
+    {
+        glBegin(GL_QUADS);
+            glColor4f(1, 0.996f, 0.937f, 0.8f);
+            glVertex2f(bottom_left.x, bottom_left.x - offset);
+            glVertex2f(up_left.x, up_left.y);
+            glVertex2f(up_right.x , up_right.y);
+            glVertex2f(bottom_right.x, bottom_right.y - offset);
+        glEnd();
+
+        glColor3f(0.466f, 0.431f, 0.396f);
+        RenderBitmapString(-0.4f,-0.15f,-1,GLUT_BITMAP_HELVETICA_18,"GAME OVER");
+        RenderBitmapString(-0.5f,-0.3f,-1,GLUT_BITMAP_HELVETICA_12,"Press NEW GAME to try again");
+    }
+
+
+    if (maxcube_flag)
+    {
+        glBegin(GL_QUADS);
+            glColor4f(1, 0.996f, 0.937f, 0.8f);
+            glVertex2f(bottom_left.x, bottom_left.x - offset);
+            glVertex2f(up_left.x, up_left.y);
+            glVertex2f(up_right.x , up_right.y);
+            glVertex2f(bottom_right.x, bottom_right.y - offset);
+        glEnd();
+
+        glColor3f(0.466f, 0.431f, 0.396f);
+            RenderBitmapString(-0.6f,-0.15f,-1,GLUT_BITMAP_HELVETICA_18,"congrats!!! you reach 512 ");
+            RenderBitmapString(-0.6f,-0.3f,-1,GLUT_BITMAP_HELVETICA_18,"Press any key to continue game");
+    }
+
+       glutSwapBuffers();
 }
 
-
-void animate(){
-
-    incx+=0.05;
-    ani_angle+=0.09;
-	glutPostRedisplay();
-}
-
-void init(){
-	glClearColor(0,0,0,0);
-
-	/************************
-	/ set-up projection here
-	************************/
-	//load the PROJECTION matrix
-	glMatrixMode(GL_PROJECTION);
-
-	//initialize the matrix
-	glLoadIdentity();
-
-	//give PERSPECTIVE parameters
-	gluPerspective(80,	1,	1,	5000.0);
-	//field of view in the Y (vertically)
-	//aspect ratio that determines the field of view in the X direction (horizontally)
-	//near distance
-	//far distance
-}
-
-int main(int argc, char **argv)
+void Timer(int value)
 {
-   // pos.x=0;
-   // pos.y=-20;
-   // pos.z=-20;
-   // l.x=0;u.x=-1;r.x=0;
-   // l.y=0;u.y=0;r.y=1;
-   // l.z=1;u.z=0;r.z=0;
+    glutPostRedisplay();
+    time_val++;
 
-    //cout<<"Press 'W' to move up | Press 'S' to move down | Press 'A' to move Left | Press 'D' to move Right";
-   // ran();
-    //ran();
-    //movement();
+    if (!timer_flag)
+        board();
 
-	glutInit(&argc,argv);
-	glutInitDisplayMode(GLUT_RGB|GLUT_DEPTH|GLUT_DOUBLE);
+    if (size_flag)
+        ResizeSquare();
+
+
+    glutTimerFunc(refreshMillis, Timer, 0);
+}
+
+void boardTimer(int value)
+{
+    time_val = 0;
+
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+        {
+            matrix[i][j].dx  =  0;
+            matrix[i][j].dy  =  0;
+            matrix[i][j].rx = 0;
+            matrix[i][j].ry = 0;
+              matrix[i][j].x = center_points[i][j].x;
+              matrix[i][j].y = center_points[i][j].y;
+
+            if (matrix[i][j].value > 0)
+            {
+                matrix[i][j].need_refresh = false;
+                matrix[i][j].delta_value = 0;
+            }
+        }
+
+    if (need_random)
+    {
+        glutTimerFunc(210, CreateRandom, 0);
+        need_random = false;
+    }
+}
+
+void Keyboard(unsigned char key, int x, int y)
+{
+    if (!maxcube_flag && !endgame_flag)
+    {
+
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+        {
+            matrix[i][j].delta_value = matrix[i][j].value;
+        }
+
+    switch (key)
+    {
+
+        case 100    : // d
+        case 68     : // D
+            ToRight(); break;
+
+        case 119    : // w
+        case 87     : // W
+            ToUp(); break;
+
+        case 115    : // s
+        case 83     : // S
+            ToDown(); break;
+
+        case 97     : // a
+        case 65     : // A
+            ToLeft(); break;
+
+
+
+        default:
+            break;
+    }
+
+    bool check_for_new_random = true;
+
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+        {
+            if (matrix[i][j].value != matrix[i][j].delta_value)
+            {
+                check_for_new_random = false;
+                break;
+            }
+        }
+
+    if (!check_for_new_random)
+        need_random = true;
+
+
+    if (need_random)
+    {
+        timer_flag = false;
+        startlerp = time_val;
+        glutTimerFunc(100, boardTimer, 0);
+    }
+    else GameStatusCheck();
+
+    }
+    else
+    {
+        if (maxcube_flag)
+            maxcube_flag = false;
+        if (endgame_flag)
+            if ((int)key == 27) //any key
+            {
+
+                exit(0);
+            }
+    }
+}
+
+void GameStatusCheck()
+{
+    bool free_square = false;
+
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+        {
+            if (matrix[i][j].value == 0)
+            {
+                free_square = true;
+                break;
+            }
+        }
+
+    if (!free_square)
+        for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 3; j++)
+            {
+                    if ((matrix[i][j].value == matrix[i+1][j].value) ||
+                        (matrix[i][j].value == matrix[i][j+1].value) ||
+                        (matrix[3][j].value == matrix[3][j+1].value) ||
+                        (matrix[i][3].value == matrix[i+1][3].value) )
+                        free_square = true;
+            }
+
+
+    if (!free_square)
+    {
+        endgame_flag= true;
+        return;
+    }
+
+    if (!max_num)
+    {
+        for (int i = 0; i < 4; i++)
+            for (int j = 0; j < 4; j++)
+            {
+                if (matrix[i][j].value == 512)
+                {
+                    maxcube_flag = true;
+                    max_num = true;
+                }
+            }
+    }
+}
+
+void Init()
+{
+    float full_space = fabsf(up_left.x) + fabsf(up_right.x);
+    one_segment_size = ((full_space - full_space / 30) / 4);
+    space_between_squares = one_segment_size / 8;
+    one_segment_size -= space_between_squares;
+
+    float free_space_x, free_space_y = space_between_squares;
+
+    for (int i = 0; i < 4; i++)
+    {
+        free_space_x = space_between_squares;
+
+        for (int j = 0; j < 4; j++)
+        {
+            center_points[i][j].x =  up_left.x  + free_space_x + (one_segment_size ) * (j+1) - (one_segment_size/2);
+            center_points[i][j].y =  up_left.y  - free_space_y - (one_segment_size) * (i+1) + (one_segment_size/2) ;
+            free_space_x += space_between_squares;
+        }
+
+        free_space_y += space_between_squares;
+    }
+
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            matrix[i][j].value = 0;
+
+    CreateRandom(200);
+    CreateRandom(200);
+
+
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+        {
+            matrix[i][j].x = center_points[i][j].x;
+            matrix[i][j].y = center_points[i][j].y;
+        }
+}
+
+void PushToStats()
+{
+    stats = CreateGameStats(matrix,scores,max_num);
+
+    Push(&stack, stats);
+}
+
+void NewGame()
+{
+    scores = 0;
+    endgame_flag = false;
+    maxcube_flag = false;
+    while (Pop(&stack, &stats))
+        {}
+    Init();
+}
+
+int ButtonClick(Button* b,float x,float y)
+{
+    if(b)
+    {
+        if( x > b->x && x < b->x+b->w && y > b->y && y < b->y+b->h )
+        {
+            b->callbackFunction();
+            return 1;
+        }
+    }
+    return 0;
+}
+
+void MouseButton(int button,int state,int x, int y)
+{
+    printf("%d %d %d\n", button, x,y);
+
+    if (state == GLUT_DOWN)
+    {
+        ButtonClick(&NewGameButton,x,y);
+    }
+}
+
+
+void SpecialInput(int key, int x, int y)
+{
+    switch(key)
+    {
+        case GLUT_KEY_DOWN:
+            Keyboard(115,0,0);
+            break;
+        case GLUT_KEY_UP:
+            Keyboard(119,0,0);
+            break;
+        case GLUT_KEY_LEFT:
+            Keyboard(97,0,0);
+            break;
+        case GLUT_KEY_RIGHT:
+            Keyboard(100,0,0);
+            break;
+    }
+}
+
+
+int main(int argc, char** argv)
+{
+    InitColors();
+    NewGame();
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_RGB|GLUT_DEPTH|GLUT_DOUBLE);
     glutInitWindowSize(windowWidth, windowHeight);
     glutInitWindowPosition((glutGet(GLUT_SCREEN_WIDTH)-windowWidth)/2,(glutGet(GLUT_SCREEN_HEIGHT)-windowHeight)/2);
     glutCreateWindow(title);
-
-	init();
-
-	glEnable(GL_DEPTH_TEST);	//enable Depth Testing
-
-	glutDisplayFunc(display);	//display callback function
-	glutIdleFunc(animate);		//what you want to do in the idle time (when no drawing is occuring)
-
-	glutKeyboardFunc(keyboardListener);
-	glutSpecialFunc(specialKeyListener);
-	glutMouseFunc(mouseListener);
-
-	glutMainLoop();		//The main loop of OpenGL
-
-	return 0;
+    glutKeyboardFunc(Keyboard);
+    glutSpecialFunc(SpecialInput);
+    glutDisplayFunc(display);
+    glutTimerFunc(0, Timer, 0);
+    initGL();
+    glutMouseFunc(MouseButton);
+    glutMainLoop();
+    return 0;
 }
