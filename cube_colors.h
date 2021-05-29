@@ -31,7 +31,7 @@ void InitColors()
 {
     AddColor(0,ResurnColor(200, 77, 194, 255));
     AddColor(1,ResurnColor(238, 228, 218, 255));  //     2
-    AddColor(2,ResurnColor(238, 225, 199, 255));  //     4
+    AddColor(2,ResurnColor(255, 229, 180, 255));  //     4
     AddColor(3,ResurnColor(251, 174, 114, 255));  //     8
     AddColor(4,ResurnColor(253, 140, 87, 255));   //    16
     AddColor(5,ResurnColor(255, 108, 83, 255));   //    32
@@ -44,19 +44,19 @@ void InitColors()
     AddColor(12,ResurnColor(88, 214, 127, 255));   //  4096
 
     
-    AddTextColor(0,ResurnColor(220, 90, 150, 255));
-    AddTextColor(1,ResurnColor(120, 110, 100, 255));  //     2
-    AddTextColor(2,ResurnColor(120, 110, 100, 255));  //     4
-    AddTextColor(3,ResurnColor(249, 246, 242, 255));  //     8
-    AddTextColor(4,ResurnColor(249, 246, 242, 255));  //    16
-    AddTextColor(5,ResurnColor(249, 246, 242, 255));  //    32
-    AddTextColor(6,ResurnColor(249, 246, 242, 255));  //    64
-    AddTextColor(7,ResurnColor(249, 246, 242, 255));  //   128
-    AddTextColor(8,ResurnColor(249, 246, 242, 255));  //   256
-    AddTextColor(9,ResurnColor(249, 246, 242, 255));  //   512
-    AddTextColor(10,ResurnColor(249, 246, 242, 255)); //  1024
-    AddTextColor(11,ResurnColor(249, 246, 242, 255)); //  2048
-    AddTextColor(12,ResurnColor(249, 246, 242, 255)); //  4096
+    AddTextColor(0,ResurnColor(255, 255, 255, 255));
+    AddTextColor(1,ResurnColor(0, 0, 0, 255));  //     2
+    AddTextColor(2,ResurnColor(0, 0, 0, 255));  //     4
+    AddTextColor(3,ResurnColor(255, 255, 255, 255));  //     8
+    AddTextColor(4,ResurnColor(255, 255, 255, 255));  //    16
+    AddTextColor(5,ResurnColor(255, 255, 255, 255));  //    32
+    AddTextColor(6,ResurnColor(255, 255, 255, 255));  //    64
+    AddTextColor(7,ResurnColor(255, 255, 255, 255));  //   128
+    AddTextColor(8,ResurnColor(255, 255, 255, 255));  //   256
+    AddTextColor(9,ResurnColor(255, 255, 255, 255));  //   512
+    AddTextColor(10,ResurnColor(255, 255, 255, 255)); //  1024
+    AddTextColor(11,ResurnColor(255, 255, 255, 255)); //  2048
+    AddTextColor(12,ResurnColor(255, 255, 255, 255)); //  4096
 
 
 }
