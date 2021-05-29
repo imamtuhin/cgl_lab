@@ -18,8 +18,8 @@ using namespace std;
 
 int time_val;
 char title[] = "merge number";
-int windowWidth  = 440;
-int windowHeight = 480;
+int windowWidth  = 540;
+int windowHeight = 580;
 float refreshMillis = 4;
 float variable = 0;
 bool timer_flag = true;
@@ -28,6 +28,14 @@ float size_koef = 0;
 float space_between_squares;
 float one_segment_size;
 float offset = 0.2f;
+int scores = 0;
+int high_scores = 0;
+bool move_flag = false;
+bool max_num = false;
+bool maxcube_flag = false;
+bool endgame_flag = false;
+bool need_random  = false;
+int startboard;
 
 
 typedef struct SQUARE
@@ -43,6 +51,8 @@ typedef struct SQUARE
     bool size;
 
 } Square ;
+Square squares[4][4];
+Square matrix[4][4];
 
 typedef struct gameinfo
 {
@@ -50,6 +60,7 @@ typedef struct gameinfo
     Square matrix[4][4];
     int scores;
 } GameStats;
+GameStats stats;
 
 GameStats CreateGameStats(Square matrix[4][4], int scores, bool max_num)
 {
@@ -58,6 +69,12 @@ GameStats CreateGameStats(Square matrix[4][4], int scores, bool max_num)
     stats.max_num = max_num;
     return  stats;
 }
+typedef struct VECTOR2
+{
+    float x;
+    float y;
+} Vector2;
+
 typedef struct _Element
 {
     GameStats value;
@@ -68,6 +85,26 @@ typedef struct TStack
 {
     Element *head;
 } Stack;
+Stack stack;
+typedef void (*ButtonCallback)();
+
+typedef struct Button
+{
+    int   x;
+    int   y;
+    int   w;
+    int   h;
+    ButtonCallback callbackFunction;
+} Button;
+
+Vector2 center_points[4][4];
+Vector2 bottom_left = {-0.7f, -0.7f};
+Vector2 up_left = {-0.7f, 0.5};
+Vector2 up_right = {0.7f, 0.5f};
+Vector2 bottom_right = {0.7f, -0.7f};
+void NewGame();
+Button NewGameButton = {60,80, 80,40, NewGame };
+void GameStatusCheck();
 
 void Create(Stack * stack)
 {
@@ -144,45 +181,6 @@ void Show(Stack * stack)
 
 }
 
-typedef struct VECTOR2
-{
-    float x;
-    float y;
-} Vector2;
-
-Vector2 center_points[4][4];
-
-Square squares[4][4];
-int startlerp;
-
-typedef void (*ButtonCallback)();
-Square matrix[4][4];
-int scores = 0;
-int high_scores = 0;
-Stack stack;
-GameStats stats;
-bool move_flag = false;
-bool max_num = false;
-bool maxcube_flag = false;
-bool endgame_flag = false;
-bool need_random  = false;
-Vector2 bottom_left = {-0.7f, -0.7f};
-Vector2 up_left = {-0.7f, 0.5};
-Vector2 up_right = {0.7f, 0.5f};
-Vector2 bottom_right = {0.7f, -0.7f};
-
-  typedef struct Button
-{
-    int   x;
-    int   y;
-    int   w;
-    int   h;
-    ButtonCallback callbackFunction;
-} Button;
-
-void NewGame();
-Button NewGameButton = {55,80, 80,40, NewGame };
-void GameStatusCheck();
 
 void drawAxes()
 {
@@ -230,7 +228,7 @@ void initGL()
 {
     glEnable (GL_BLEND);
     glBlendFunc (GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
-    glClearColor(1, 0.996f, 0.937f, 1);
+    glClearColor(1, 1, 1, 1);
 }
 
 void RenderBitmapString(float x, float y,float z, void *font,char *string)
@@ -707,13 +705,13 @@ void display()
     }
 
     glColor3f(0.466f, 0.431f, 0.396f);
-        RenderBitmapString(-0.71f,0.82f,-1,GLUT_BITMAP_HELVETICA_18,"merge number");
+        RenderBitmapString(-0.71f,0.82f,-1,GLUT_BITMAP_HELVETICA_18,"CUBE MERGE");
         RenderBitmapString(-0.35f,0.6f,-1,GLUT_BITMAP_HELVETICA_12,"left,right,up,down/W,S,A,D");
         RenderBitmapString(-0.35f,0.54f,-1,GLUT_BITMAP_HELVETICA_12,"to merge number");
-    glColor3f(0.933f, 0.894f, 0.854f);
+    glColor3f(1.0f, 1.0f, 1.0f);
         RenderBitmapString((up_right.x - 0.85f) + 0.15f,1 - (1 - up_right.y - offset)+0.14f,-1,GLUT_BITMAP_HELVETICA_10,"Score");
         RenderBitmapString((up_right.x - 0.4f) + 0.15f,1 - (1 - up_right.y - offset)+0.14f,-1,GLUT_BITMAP_HELVETICA_10,"Best");
-        RenderBitmapString((up_left.x + 0.1f),1 - (1 - up_right.y - offset)-0.11f,-1,GLUT_BITMAP_HELVETICA_10,"New");
+        RenderBitmapString((up_left.x + 0.05f),1 - (1 - up_right.y - offset)-0.11f,-1,GLUT_BITMAP_HELVETICA_10,"NEW GAME");
 
 
     char char_scores[20];
@@ -723,7 +721,7 @@ void display()
     sprintf(char_scores, "%d", high_scores);
     RenderBitmapString(((up_right.x - 0.81f) + 0.61f)-(0.02f*strlen(char_scores)),1 - (1 - up_right.y - offset) + 0.05f,-1,GLUT_BITMAP_HELVETICA_18,char_scores);
 
-
+//no free cube
     if (endgame_flag)
     {
         glBegin(GL_QUADS);
@@ -739,7 +737,7 @@ void display()
         RenderBitmapString(-0.5f,-0.3f,-1,GLUT_BITMAP_HELVETICA_12,"Press NEW GAME to try again");
     }
 
-
+//max cube 512
     if (maxcube_flag)
     {
         glBegin(GL_QUADS);
@@ -856,7 +854,7 @@ void Keyboard(unsigned char key, int x, int y)
     if (need_random)
     {
         timer_flag = false;
-        startlerp = time_val;
+        startboard = time_val;
         glutTimerFunc(100, boardTimer, 0);
     }
     else GameStatusCheck();
