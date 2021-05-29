@@ -44,7 +44,7 @@ typedef struct SQUARE
 
 } Square ;
 
-typedef struct GAMEINFO
+typedef struct gameinfo
 {
     bool max_num;
     Square matrix[4][4];
@@ -54,12 +54,10 @@ typedef struct GAMEINFO
 GameStats CreateGameStats(Square matrix[4][4], int scores, bool max_num)
 {
     GameStats stats;
-    memcpy(stats.matrix, matrix, sizeof(Square)*16);
     stats.scores = scores;
     stats.max_num = max_num;
     return  stats;
 }
-///start important
 typedef struct _Element
 {
     GameStats value;
@@ -145,8 +143,6 @@ void Show(Stack * stack)
     Destroy(&buf);
 
 }
-///end important
-
 
 typedef struct VECTOR2
 {
@@ -277,7 +273,7 @@ void board ()
 
 }
 
-void StopSizeTimer(int value)
+void cubeSizeTimer(int value)
 {
     size_flag = false;
 
@@ -315,13 +311,13 @@ void CreateRandom(int value)
         matrix[i][j].need_refresh = false;
 
         size_flag = true;
-        glutTimerFunc(100, StopSizeTimer, 0);
+        glutTimerFunc(100, cubeSizeTimer, 0);
 
     }
     else CreateRandom(200);
 }
 
-void ToUp()
+void moveup()
 {
 
     if (!timer_flag)
@@ -389,7 +385,7 @@ void ToUp()
 
 }
 
-void ToDown()
+void movedown()
 {
     if (!timer_flag)
         return;
@@ -454,7 +450,7 @@ void ToDown()
             }
 }
 
-void ToLeft()
+void moveleft()
 {
     if (!timer_flag)
         return;
@@ -521,7 +517,7 @@ void ToLeft()
 
 }
 
-void ToRight()
+void moveright()
 {
     if (!timer_flag)
         return;
@@ -589,6 +585,8 @@ void ToRight()
 void display()
 {
     glClear(GL_COLOR_BUFFER_BIT);
+    glClearColor(1,1,1,0);
+
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
@@ -628,8 +626,6 @@ void display()
         glVertex2f(up_right.x , up_right.y);
         glVertex2f(bottom_right.x, bottom_right.y - offset);
     glEnd();
-
-
 
     //board
     float current_x, current_y;
@@ -762,7 +758,7 @@ void display()
        glutSwapBuffers();
 }
 
-void Timer(int value)
+void timer(int value)
 {
     glutPostRedisplay();
     time_val++;
@@ -774,7 +770,7 @@ void Timer(int value)
         ResizeSquare();
 
 
-    glutTimerFunc(refreshMillis, Timer, 0);
+    glutTimerFunc(refreshMillis, timer, 0);
 }
 
 void boardTimer(int value)
@@ -821,19 +817,19 @@ void Keyboard(unsigned char key, int x, int y)
 
         case 100    : // d
         case 68     : // D
-            ToRight(); break;
+            moveright(); break;
 
         case 119    : // w
         case 87     : // W
-            ToUp(); break;
+            moveup(); break;
 
         case 115    : // s
         case 83     : // S
-            ToDown(); break;
+            movedown(); break;
 
         case 97     : // a
         case 65     : // A
-            ToLeft(); break;
+            moveleft(); break;
 
 
 
@@ -1037,7 +1033,7 @@ int main(int argc, char** argv)
     glutKeyboardFunc(Keyboard);
     glutSpecialFunc(SpecialInput);
     glutDisplayFunc(display);
-    glutTimerFunc(0, Timer, 0);
+    glutTimerFunc(0, timer, 0);
     initGL();
     glutMouseFunc(MouseButton);
     glutMainLoop();
